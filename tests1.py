@@ -11,6 +11,20 @@ def get_empty_matrix(lng, wid) -> list:
     return [[[0, 0, 0] for i in range(lng)] for j in range(wid)]
 
 
+def tup_sum(tuple_one, tuple_two):
+    res = []
+    for el in range(len(tuple_one)):
+        res.append(tuple_one[el] + tuple_two[el])
+    return res
+
+
+def tup_diff(tuple_one, tuple_two):
+    res = []
+    for el in range(len(tuple_one)):
+        res.append(tuple_one[el] - tuple_two[el])
+    return res
+
+
 def mean_of_mat(matrix: list) -> list:
     result = [0, 0, 0]
     t: list
@@ -25,7 +39,7 @@ def mean_of_mat(matrix: list) -> list:
 
 
 def gaussian(x, mu, sig):
-    return 1./(sqrt(2.*pi)*sig)*np.exp(-np.power((x - mu)/sig, 2.)/2)
+    return 1. / (sqrt(2. * pi) * sig) * np.exp(-np.power((x - mu) / sig, 2.) / 2)
 
 
 def image_expand(img, m_w, m_h):
@@ -56,7 +70,6 @@ def mat_synth(frames: list) -> Image.Image:
         for lhi in range(low_height):
             for swi in range(shot_w):
                 for shi in range(shot_h):
-
                     x_cor = lwi * shot_w + swi
                     y_cor = lhi * shot_h + shi
                     pix_a = frames[swi][shi].getpixel((lwi, lhi))
@@ -65,7 +78,30 @@ def mat_synth(frames: list) -> Image.Image:
     out = Image.new("RGB", (len(img), len(img[0])))
     for i in range(len(img)):
         for j in range(len(img[0])):
-            out.putpixel((i,j), tuple(img[i][j]))
+            out.putpixel((i, j), tuple(img[i][j]))
+    return out
+
+
+def subpixel_synth(frames: list) -> Image.Image:
+    shot_h = len(frames[0])
+    shot_w = len(frames)
+    low_width = frames[0][0].width
+    low_height = frames[0][0].height
+    top_width = shot_w * low_width
+    top_height = shot_h * low_height
+    img = get_empty_matrix(top_width, top_height)
+
+    for lwi in range(low_width):
+        for lhi in range(low_height):
+            for swi in range(shot_w):
+                for shi in range(shot_h):
+                    x_cor = lwi * shot_w + swi
+                    y_cor = lhi * shot_h + shi
+
+    out = Image.new("RGB", (len(img), len(img[0])))
+    for i in range(len(img)):
+        for j in range(len(img[0])):
+            out.putpixel((i, j), tuple(img[i][j]))
     return out
 
 
@@ -86,7 +122,7 @@ def scan(scale, orig_img: Image.Image) -> list:
         j_frames = []
         for j in range(scale):
             new_img = orig_img.crop((i, j, mask_w + i, mask_h + j))
-            new_img = new_img.resize((new_size_w, new_size_h), Image.NEAREST)
+            new_img = new_img.resize((new_size_w, new_size_h), Image.LINEAR)
             j_frames = j_frames + [new_img]
         frames = frames + [j_frames]
 
@@ -96,12 +132,12 @@ def scan(scale, orig_img: Image.Image) -> list:
         ys = 0
         for frame in j_frames:
             ys = ys + 1
-            frame.resize((orig_img.width, orig_img.height), Image.LINEAR).save('results/scan_yAxis' + str(ys) + '_xAxis' + str(xs) + '.bmp')
+            frame.resize((orig_img.width, orig_img.height), Image.LINEAR).save(
+                'results/scan_yAxis' + str(ys) + '_xAxis' + str(xs) + '.bmp')
     return frames
 
 
 def scan2(scale, orig_img: Image.Image) -> list:
-
     print('size of original image [', orig_img.width, orig_img.height, ']')
     mask_size = scale
     new_size_w = int(orig_img.width / scale)
@@ -120,11 +156,11 @@ def scan2(scale, orig_img: Image.Image) -> list:
             for i in range(new_size_w):
                 isc = i * scale + x
                 for j in range(new_size_h):
-                    jsc = j*scale+y
-                    for m1 in range(0-mask_half+1, mask_size-mask_half+1, 1):
-                        for m2 in range(0-mask_half+1, mask_size-mask_half+1, 1):
-                            isc_mx = isc+m1
-                            jsc_my = jsc+m2
+                    jsc = j * scale + y
+                    for m1 in range(0 - mask_half + 1, mask_size - mask_half + 1, 1):
+                        for m2 in range(0 - mask_half + 1, mask_size - mask_half + 1, 1):
+                            isc_mx = isc + m1
+                            jsc_my = jsc + m2
                             if 0 <= isc_mx < orig_img.width and 0 <= jsc_my < orig_img.height:
                                 mask[m1][m2] = orig_img.getpixel((isc_mx, jsc_my))
                             else:
@@ -134,13 +170,16 @@ def scan2(scale, orig_img: Image.Image) -> list:
 
                     tmp_img.putpixel((i, j), mean)
             j_frames = j_frames + [tmp_img]
-            tmp_img.resize((orig_img.width, orig_img.height), Image.LINEAR).save('results/scan_yAxis' + str(y) + '_xAxis' + str(x) + '.bmp')
+            tmp_img.resize((orig_img.width, orig_img.height), Image.LINEAR).save(
+                'results/scan_yAxis' + str(y) + '_xAxis' + str(x) + '.bmp')
         frames = frames + [j_frames]
 
     return frames
 
 
 orig = Image.open('sunflowers.bmp')
-t_frames = scan(32, orig)
+t_frames = scan(3, orig)
+new_image = subpixel_synth(t_frames)
+new_image.save('sunflowers_subpixel.bmp')
 new_image = mat_synth(t_frames)
-new_image.save('sunflowers_new.bmp')
+new_image.save('sunflowers_matrix.bmp')

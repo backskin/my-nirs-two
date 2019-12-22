@@ -187,7 +187,7 @@ def get_smallest_bitmap(bitmaps: list):
 def fusion_impulse_filter(img_list: list) -> Image.Image:
     while len(img_list) > 1:
         num, bm = get_smallest_bitmap(get_bitmaps(img_list))
-        print('ESTIMATED ', len(img_list))
+        print('Impulse fusion: ESTIMATED ', len(img_list))
         best_sample: Image.Image = img_list.pop(num)
         best_sample.save('impulse/best_sample-' + str(len(img_list)) + '.bmp')
         for image in img_list:

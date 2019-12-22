@@ -142,7 +142,7 @@ def gen_wm_blind_template(bit_size, mat_size):
     return output
 
 
-def embed_wmark_blind_multi(alpha: float, bit_message:list, key, img_orig: Image.Image) -> Image.Image:
+def embed_wmark_blind_multi(gain_alpha: float, bit_message:list, key, img_orig: Image.Image) -> Image.Image:
     import random
     wid, hei = img_orig.width, img_orig.height
     random.seed(key)
@@ -153,11 +153,11 @@ def embed_wmark_blind_multi(alpha: float, bit_message:list, key, img_orig: Image
         for j in range(hei):
             wmod = wr[i][j] if bit_message[mat_helper[i][j]] == 1 else 0-wr[i][j]
             chan1 = img_orig.getpixel((i, j))[0]
-            chan1 += alpha * wmod
+            chan1 += gain_alpha * wmod
             chan2 = img_orig.getpixel((i, j))[1]
-            chan2 += alpha * wmod
+            chan2 += gain_alpha * wmod
             chan3 = img_orig.getpixel((i, j))[2]
-            chan3 += alpha * wmod
+            chan3 += gain_alpha * wmod
             newimg.putpixel((i,j), tuple(tint([chan1, chan2, chan3])))
 
     return newimg
@@ -181,22 +181,27 @@ def extract_wmark_blind_multi(thrsd, bit_len, key, img_cw: Image.Image):
 
     b_restored = []
     for i in range(bit_len):
-        print('extract k=', i)
+        print('extraction of', i+1, ' bit')
         w_rk = np.zeros(wr.shape)
         num_k = 0
-        for m in range(len(w_rk)):
-            for n in range(len(w_rk[0])):
+        for m in range(img_cw.width):
+            for n in range(img_cw.height):
                 if int(mat_helper[m][n]) == i:
                     w_rk[m][n] = wr[m][n]
                     num_k += 1
                 else:
                     w_rk[m][n] = .0
+
         p_kred, p_kgreen, p_kblue = 0, 0, 0
+
         for m in range(img_cw.width):
             for n in range(img_cw.height):
-                p_kred += img_cw.getpixel((m, n))[0] * w_rk[m][n]
-                p_kgreen += img_cw.getpixel((m, n))[1] * w_rk[m][n]
-                p_kblue += img_cw.getpixel((m, n))[2] * w_rk[m][n]
+                pix = img_cw.getpixel((m, n))
+                w_rk_val = w_rk[m][n]
+                p_kred += pix[0] * w_rk_val
+                p_kgreen += pix[1] * w_rk_val
+                p_kblue += pix[2] * w_rk_val
+
         cof = (1/num_k)
         p_kred *= cof
         p_kgreen *= cof
@@ -204,4 +209,16 @@ def extract_wmark_blind_multi(thrsd, bit_len, key, img_cw: Image.Image):
         b_kr, b_kg, b_kb = p_blinder(p_kred, thrsd), p_blinder(p_kgreen, thrsd), p_blinder(p_kblue, thrsd)
         b_restored.append((b_kr, b_kg, b_kb))
 
-    return b_restored
+    b_out = []
+    for elm in b_restored:
+        flag = False
+        for bit in elm:
+            if bit != -1:
+                flag = True
+                b_out.append(bit)
+                break
+        if not flag:
+            b_out.append(-1)
+
+
+    return b_out

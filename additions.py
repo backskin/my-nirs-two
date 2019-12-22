@@ -38,6 +38,7 @@ def high_pass_filter(border: int, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndar
 
 def get_imp_noise(density: float, orig_img: Image.Image) -> Image.Image:
     import random
+    random.seed()
     image = orig_img.copy()
     for i in range(image.width):
         for j in range(image.height):

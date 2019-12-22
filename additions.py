@@ -2,6 +2,10 @@ import PIL.Image as Image
 import numpy as np
 
 
+def adjust_channels(coef: float, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> tuple:
+    return ch1 * coef, ch2 * coef, ch3 * coef
+
+
 def dct2(block):
     from scipy.fftpack import dct
     return dct(dct(block.T, norm='ortho').T, norm='ortho')
@@ -85,7 +89,7 @@ def enoise_image_mul(std: float, img: Image.Image) -> Image.Image:
     for i in range(img.width):
         for j in range(img.height):
             old_pix = img.getpixel((i, j))
-            new_img.putpixel((i, j), tuple(tint(tsum(old_pix, tmul(old_pix, np.random.normal(0.0, std))))))
+            new_img.putpixel((i, j), tuple(tint(tup_sum(old_pix, tup_mul(old_pix, np.random.normal(0.0, std))))))
     return new_img
 
 
@@ -97,7 +101,7 @@ def enoise_image_mul_rgb(std: float, img: Image.Image) -> Image.Image:
             noise_pix = []
             for k in range(len(old_pix)):
                 noise_pix.append(old_pix[k] * np.random.normal(0.0, std))
-            new_img.putpixel((i, j), tuple(tint(tsum(old_pix, noise_pix))))
+            new_img.putpixel((i, j), tuple(tint(tup_sum(old_pix, noise_pix))))
     return new_img
 
 
@@ -129,21 +133,21 @@ def tint(tuple_one):
     return res
 
 
-def tmul(tuple_one, mul):
+def tup_mul(tuple_one, mul):
     res = []
     for el in tuple_one:
         res.append(el * mul)
     return res
 
 
-def tsum(tuple_one, tuple_two):
+def tup_sum(tuple_one, tuple_two):
     res = []
     for el in range(len(tuple_one)):
         res.append(tuple_one[el] + tuple_two[el])
     return res
 
 
-def tdiff(tuple_one, tuple_two):
+def tup_dif(tuple_one, tuple_two):
     res = []
     for el in range(len(tuple_one)):
         res.append(tuple_one[el] - tuple_two[el])
@@ -160,10 +164,10 @@ def tup_total(tuple_one):
 def tup_max(tuple_list: list):
     index = 0
     max_amount = 0
-    for tindex in range(len(tuple_list)):
-        total = tup_total(tuple_list[tindex])
+    for t_index in range(len(tuple_list)):
+        total = tup_total(tuple_list[t_index])
         if total > max_amount:
-            index = tindex
+            index = t_index
             max_amount = total
     return index
 

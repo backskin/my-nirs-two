@@ -1,5 +1,5 @@
 import PIL.Image as Image
-from additions import empty_rgb_matrix, expand_image, tsum, tmul, tint, \
+from additions import empty_rgb_matrix, expand_image, tup_sum, tup_mul, tint, adjust_channels, \
     high_pass_filter, low_pass_filter, dct2, idct2, tup_total, tup_sort, tup_median
 import numpy as np
 
@@ -76,8 +76,8 @@ def scan_blurry(scale, orig_img: Image.Image) -> list:
                     for m1 in range(0 - half, half, 1):
                         for m2 in range(0 - half, half, 1):
                             if 0 < isc + m1 < cast_img.width and 0 < jsc + m2 < cast_img.height:
-                                mean = tsum(mean, cast_img.getpixel((isc + m1, jsc + m2)))
-                    mean = tmul(mean, 1 / (scale * scale))
+                                mean = tup_sum(mean, cast_img.getpixel((isc + m1, jsc + m2)))
+                    mean = tup_mul(mean, 1 / (scale * scale))
                     tmp_img.putpixel((i, j), tuple(tint(mean)))
 
             j_frames = j_frames + [tmp_img]
@@ -106,13 +106,6 @@ def toFreq(img: Image.Image) -> tuple:
 
 def fromFreq(mat1: np.ndarray, mat2: np.ndarray, mat3: np.ndarray):
     return idct2(mat1), idct2(mat2), idct2(mat3)
-
-
-def adjust_channels(coef: float, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> tuple:
-    ch1_new = ch1 * coef
-    ch2_new = ch2 * coef
-    ch3_new = ch3 * coef
-    return ch1_new, ch2_new, ch3_new
 
 
 def sum_cha_packs(pack_one, pack_two):
@@ -208,29 +201,20 @@ def fusion_stacking(fusion_type: str, shots: list) -> Image.Image:
     img_new = Image.new(example.mode, example.size)
 
     if fusion_type == 'mean':
-        img_mat = np.zeros([*example.size, 3])
-        for shot in shots:
-            print('another shot...')
-            shot: Image.Image
-            for i in range(shot.width):
-                for j in range(shot.height):
-                    img_mat[i][j] = tsum(img_mat[i][j], shot.getpixel((i, j)))
+        for i in range(example.width):
+            for j in range(example.height):
+                pix = (0, 0, 0)
+                for shot in shots:
+                    pix = tup_sum(pix, shot.getpixel((i, j)))
+                img_new.putpixel((i, j), tuple(tint(tup_mul(pix, (1 / len(shots))))))
 
-        for i in range(img_new.width):
-            for j in range(img_new.height):
-                img_new.putpixel((i, j), tuple(tint(tmul(img_mat[i][j], (1/len(shots))))))
     else:
-        img_mat = [[[] for i in range(example.height)] for j in range(example.width)]
-        for shot in shots:
-            print('another shot...')
-            shot: Image.Image
-            for i in range(shot.width):
-                for j in range(shot.height):
-                    img_mat[i][j].append(shot.getpixel((i, j)))
-
-        for i in range(img_new.width):
-            for j in range(img_new.height):
-                median_pixel = tup_median(tup_sort(img_mat[i][j]))
-                img_new.putpixel((i, j), tuple(tint(median_pixel)))
+        shot: Image.Image
+        for i in range(example.width):
+            for j in range(example.height):
+                pixes = []
+                for shot in shots:
+                    pixes.append(shot.getpixel((i, j)))
+                img_new.putpixel((i, j), tuple(tint(tup_median(tup_sort(pixes)))))
 
     return img_new

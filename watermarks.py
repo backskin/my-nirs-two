@@ -1,5 +1,5 @@
 import PIL.Image as Image
-from additions import tint, tsum, tdiff, tup_total, tmul, empty_rgb_matrix
+from additions import tint, tup_sum, tup_dif, tup_total, tup_mul, empty_rgb_matrix
 from fusions import fusion_two_images
 
 
@@ -24,7 +24,7 @@ def embed_wmark_additive(alpha: float, img_orig: Image.Image, watermark: Image.I
             mean /= len(orig_pixel)
             if mean < 128:
                 pelmeni = -1
-            newimg.putpixel((i,j), tsum(orig_pixel, tmul(wm_expanded.getpixel((i, j)), alpha*pelmeni)))
+            newimg.putpixel((i,j), tup_sum(orig_pixel, tup_mul(wm_expanded.getpixel((i, j)), alpha * pelmeni)))
 
     return newimg
 
@@ -61,7 +61,7 @@ def embed_wmark_dm_qim(key, delta, img_orig: Image.Image, wmark: Image.Image) ->
             wm_value = 1 if tup_total(wmark.getpixel((w_x, w_y))) > 0 else 0
             dither_value = d1[i][j] if wm_value == 1 else d0[i][j]
             orig_pix = img_orig.getpixel((i, j))
-            cw_pixel = tdiff(quantum(tsum(orig_pix, dither_value), delta), dither_value)
+            cw_pixel = tup_dif(quantum(tup_sum(orig_pix, dither_value), delta), dither_value)
             newimg.putpixel((i, j), tuple(tint(cw_pixel)))
 
     return newimg
@@ -73,10 +73,10 @@ def extract_wmark_dm_qim(key, delta, cw_img:Image.Image) -> Image.Image:
 
     for i in range(cw_img.width):
         for j in range(cw_img.height):
-            c_0 = tdiff(quantum(tsum(cw_img.getpixel((i, j)), d0[i][j]), delta), d0[i][j])
-            c_1 = tdiff(quantum(tsum(cw_img.getpixel((i, j)), d1[i][j]), delta), d1[i][j])
-            p_0 = tup_total(tdiff(cw_img.getpixel((i, j)), c_0))
-            p_1 = tup_total(tdiff(cw_img.getpixel((i, j)), c_1))
+            c_0 = tup_dif(quantum(tup_sum(cw_img.getpixel((i, j)), d0[i][j]), delta), d0[i][j])
+            c_1 = tup_dif(quantum(tup_sum(cw_img.getpixel((i, j)), d1[i][j]), delta), d1[i][j])
+            p_0 = tup_total(tup_dif(cw_img.getpixel((i, j)), c_0))
+            p_1 = tup_total(tup_dif(cw_img.getpixel((i, j)), c_1))
             if p_0 <= p_1:
                 watermark.putpixel((i, j), (0, 0, 0))
             else:
@@ -116,7 +116,7 @@ def extract_wmark_dct(size, img_wm: Image.Image) -> Image.Image:
             wm_prepared[x][y] = tsum_dist(wm_prepared[x][y], img_wm.getpixel((i,j)))
     for i in range(len(wm_prepared)):
         for j in range(len(wm_prepared[0])):
-            wm_prepared[i][j] = tmul(wm_prepared[i][j], size[0] /wid * size[1]/ hei)
+            wm_prepared[i][j] = tup_mul(wm_prepared[i][j], size[0] / wid * size[1] / hei)
             watmark.putpixel((i,j), tuple(tint(wm_prepared[i][j])))
     return watmark
 
@@ -182,22 +182,17 @@ def extract_wmark_blind_multi(thrsd, bit_len, key, img_cw: Image.Image):
     b_restored = []
     for i in range(bit_len):
         print('extraction of', i+1, ' bit')
-        w_rk = np.zeros(wr.shape)
         num_k = 0
-        for m in range(img_cw.width):
-            for n in range(img_cw.height):
-                if int(mat_helper[m][n]) == i:
-                    w_rk[m][n] = wr[m][n]
-                    num_k += 1
-                else:
-                    w_rk[m][n] = .0
-
         p_kred, p_kgreen, p_kblue = 0, 0, 0
-
         for m in range(img_cw.width):
             for n in range(img_cw.height):
                 pix = img_cw.getpixel((m, n))
-                w_rk_val = w_rk[m][n]
+
+                if int(mat_helper[m][n]) == i:
+                    w_rk_val = wr[m][n]
+                    num_k += 1
+                else:
+                    w_rk_val = .0
                 p_kred += pix[0] * w_rk_val
                 p_kgreen += pix[1] * w_rk_val
                 p_kblue += pix[2] * w_rk_val

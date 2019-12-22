@@ -124,7 +124,7 @@ def scan(scale, orig_img: Image.Image) -> list:
     for x in range(scale):
         j_frames = []
         for y in range(scale):
-            new_img = orig_img.crop((x, y, m_w + x, m_h + y)).resize((new_w, new_h), Image.BILINEAR)
+            new_img = orig_img.crop((x, y, m_w + x, m_h + y)).resize((new_w, new_h), Image.LINEAR)
             new_img.resize((orig_img.width, orig_img.height), Image.NONE).save(
                 'results/scan_yAxis' + str(y) + '_xAxis' + str(x) + '.bmp')
             j_frames = j_frames + [new_img]
@@ -268,31 +268,12 @@ def impulse_fusion_filter(img_list: list) -> Image.Image:
     return img_list[0]
 
 
-#
-# def DCT(u,v, img: Image.Image):
-#     from math import cos, pi
-#     m = img.width
-#     n = img.height
-#     alpha = 1
-#     beta = 1
-#     if u == 0:
-#         alpha = 1/sqrt(m)
-#     elif u < m:
-#         alpha = sqrt(2 / m)
-#
-#     if v == 0:
-#         beta = 1 / sqrt(n)
-#     elif v < n:
-#         beta = sqrt(2/n)
-#
-#     res = (0,0,0)
-#     for i in range(m):
-#         for j in range(n):
-#             cosin = cos(pi/m * (i+0.5) *u) * cos(pi/n * (j + 0.5)*v)
-#             res = tsum(res, tmul(img.getpixel((i,j)), cosin))
-#     tmul(res, alpha * beta)
-#
-#     return res
+def expand_img(img:Image.Image, new_size) -> Image.Image:
+    newimg = Image.new(img.mode, new_size)
+    for i in range(newimg.width):
+        for j in range(newimg.height):
+            newimg.putpixel((i,j), img.getpixel((divmod(i, img.width)[1], divmod(j, img.height)[1])))
+    return newimg
 
 
 def dct2(block):
@@ -335,10 +316,36 @@ def get_image_from_channels(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -
     return newimg
 
 
+def low_pass_filter(border: int, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> tuple:
+    l = border if len(ch1) > border > 0 else len(ch1)-1
+    w = border if len(ch1[0]) > border > 0 else len(ch1[0])-1
+    ch1_new = ch1
+    ch1_new[l:, w:] = 0
+    ch2_new = ch2
+    ch2_new[l:, w:] = 0
+    ch3_new = ch3
+    ch3_new[l:, w:] = 0
+    return ch1_new, ch2_new, ch3_new
+
+
+def high_pass_filter(border: int, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> tuple:
+    l = border if len(ch1) > border > 0 else 0
+    w = border if len(ch1[0]) > border > 0 else 0
+    ch1_new = ch1
+    ch1_new[:l, :w] = 0
+    ch2_new = ch2
+    ch2_new[:l, :w] = 0
+    ch3_new = ch3
+    ch3_new[:l, :w] = 0
+    return ch1_new, ch2_new, ch3_new
+
+
 def adjust_channels(coef: float, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> tuple:
+
     ch1_new = ch1 * coef
     ch2_new = ch2 * coef
     ch3_new = ch3 * coef
+
     return ch1_new, ch2_new, ch3_new
 
 
@@ -346,9 +353,13 @@ def sum_cha_packs(pack_one, pack_two):
     return pack_one[0] + pack_two[0], pack_one[1] + pack_two[1], pack_one[2] + pack_two[2]
 
 
-def sum_two_images(img1: Image.Image, k1: float, img2: Image.Image, k2: float) -> Image.Image:
+def fuse_two_images(img1: Image.Image, b1: int, c1: int, k1: float, img2: Image.Image, b2: int, c2: int, k2: float) -> Image.Image:
     cha_pack1 = adjust_channels(k1, *toFreq(img1))
+    cha_pack1 = low_pass_filter(b1, *cha_pack1)
+    cha_pack1 = high_pass_filter(c1, *cha_pack1)
     cha_pack2 = adjust_channels(k2, *toFreq(img2))
+    cha_pack2 = low_pass_filter(b2, *cha_pack2)
+    cha_pack2 = high_pass_filter(c2, *cha_pack2)
     return get_image_from_channels(*fromFreq(*sum_cha_packs(cha_pack1, cha_pack2)))
 
 
@@ -356,15 +367,107 @@ def tudaobratno(img: Image.Image) -> Image.Image:
     return get_image_from_channels(*fromFreq(*toFreq(img)))
 
 
-image_name = 'rain'
-second_image_name = 'sun-and-sky'
+def embed_wmark_dct(img_orig: Image.Image, watermark: Image.Image) -> Image.Image:
 
-one = Image.open(image_name + '.bmp')
-two = Image.open(second_image_name + '.bmp')
+    wm_expanded = expand_img(watermark, img_orig.size)
+    wm_expanded.save('wm_expanded.bmp')
+    newimg = fuse_two_images(img_orig, 0, 0, 1, wm_expanded, 0, 40, 0.3)
+    return newimg
 
-newimage = sum_two_images(one, 0.4, two, 0.6)
 
-newimage.save(image_name + '_and_' + second_image_name + '_as_new_img.bmp')
+def embed_wmark_additive(alpha: float, img_orig: Image.Image, watermark: Image.Image) -> Image.Image:
+    newimg = img_orig.copy()
+    wm_expanded = expand_img(watermark, img_orig.size)
+    for i in range(img_orig.width):
+        for j in range(img_orig.height):
+            orig_pixel = img_orig.getpixel((i, j))
+            pelmeni = 1
+            mean = 0
+            for el in orig_pixel:
+                mean += el
+            mean /= len(orig_pixel)
+            if mean < 128:
+                pelmeni = -1
+            newimg.putpixel((i,j), tsum(orig_pixel, tmul(wm_expanded.getpixel((i, j)), alpha*pelmeni)))
+
+    return newimg
+
+
+def quantum(tup:tuple, delta):
+    output = []
+    for el in tup:
+        output.append(delta * round(el / delta))
+    return output
+
+
+def generate_dither_vectors(key, delta, size):
+    random.seed(key)
+    d0 = np.zeros([size, 3])
+    d1 = np.zeros([size, 3])
+    for i in range(size[0]):
+        for j in range(size[1]):
+            for k in range(3):
+                d0[i][j][k] = round(delta*(random.random()-0.5))
+                d1[i][j][k] = round(d0[i][j][k] - np.sign(d0[i][j])*(delta/2))
+
+    return d0, d1
+
+
+def embed_wmark_dm_qim(delta, img_orig: Image.Image, watermark: Image.Image) -> Image.Image:
+    newimg = img_orig.copy()
+    wm_mat = np.zeros([watermark.size])
+    d0, d1 = generate_dither_vectors()
+    for i in range(len(wm_mat)):
+        for j in range(len(wm_mat[0])):
+            wm_mat = 1 if tuptotal(watermark.getpixel((i,j))) / 3 > 128.0 else 0
+
+    for i in range(img_orig.width):
+        for j in range(img_orig.height):
+            orig_pix = img_orig.getpixel((i, j))
+            orig_pix = tsum(orig_pix, )
+            cw_pixel = quantum(orig_pix, delta)
+            newimg.putpixel()
+
+
+def extract_wmark_dct(size, img_wm: Image.Image) -> Image.Image:
+
+    wid = img_wm.width
+    hei = img_wm.height
+
+    watmark = Image.new(img_wm.mode, size)
+    wm_prepared = empty_rgb_matrix(size[1], size[0])
+
+    for i in range(wid):
+        for j in range(hei):
+
+            x = divmod(i, size[0])[1]
+            y = divmod(j, size[1])[1]
+            wm_prepared[x][y] = tsum(wm_prepared[x][y], img_wm.getpixel((i,j)))
+
+    for i in range(len(wm_prepared)):
+        for j in range(len(wm_prepared[0])):
+            wm_prepared[i][j] = tmul(wm_prepared[i][j], size[0] /wid * size[1]/ hei)
+            watmark.putpixel((i,j), tuple(tint(wm_prepared[i][j])))
+    return watmark
+
+image_name = 'car'
+wm_name = 'wm'
+# # second_image_name = 'sun-and-sky'
+# #
+one: Image.Image = Image.open(image_name + '.bmp')
+two: Image.Image = Image.open(wm_name+'.bmp')
+
+three = embed_wmark_dct(one, two)
+
+extracted = extract_wmark_dct(two.size, three)
+extracted.save('extracted-wm.bmp')
+
+three.save(image_name+'_with_'+wm_name+'.bmp')
+
+#
+# newimage = sum_two_images(one, 0.4, two, 0.6)
+#
+# newimage.save(image_name + '_and_' + second_image_name + '_as_new_img.bmp')
 # noise_set = get_noisy_set(0.9, 50, orig)
 # print('GOT SET')
 # sample: Image.Image = noise_set[0]
@@ -373,7 +476,9 @@ newimage.save(image_name + '_and_' + second_image_name + '_as_new_img.bmp')
 # print('FINISHED')
 # clear_image.save('impulse/'+image_name + '_clear.bmp')
 
-# t_frames = scan(16, orig)
+# orig = Image.open(image_name + '.bmp')
+#
+# t_frames = scan(8, orig)
 # print('matsynth started')
 # new_image = mat_synth(t_frames)
 # new_image.save(image_name+'_matrix.bmp')

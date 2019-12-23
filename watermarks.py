@@ -1,19 +1,11 @@
 import PIL.Image as Image
-from additions import tint, tup_sum, tup_dif, tup_total, tup_mul, empty_rgb_matrix
+from additions import tint, tup_sum, tup_dif, tup_total, tup_mul, empty_rgb_matrix, pave_image
 from fusions import fusion_two_images
-
-
-def expand_img(img:Image.Image, new_size) -> Image.Image:
-    newimg = Image.new(img.mode, new_size)
-    for i in range(newimg.width):
-        for j in range(newimg.height):
-            newimg.putpixel((i,j), img.getpixel((divmod(i, img.width)[1], divmod(j, img.height)[1])))
-    return newimg
 
 
 def embed_wmark_additive(alpha: float, img_orig: Image.Image, watermark: Image.Image) -> Image.Image:
     newimg = img_orig.copy()
-    wm_expanded = expand_img(watermark, img_orig.size)
+    wm_expanded = pave_image(watermark, img_orig.size)
     for i in range(img_orig.width):
         for j in range(img_orig.height):
             orig_pixel = img_orig.getpixel((i, j))
@@ -24,7 +16,7 @@ def embed_wmark_additive(alpha: float, img_orig: Image.Image, watermark: Image.I
             mean /= len(orig_pixel)
             if mean < 128:
                 pelmeni = -1
-            newimg.putpixel((i,j), tup_sum(orig_pixel, tup_mul(wm_expanded.getpixel((i, j)), alpha * pelmeni)))
+            newimg.putpixel((i, j), tup_sum(orig_pixel, tup_mul(wm_expanded.getpixel((i, j)), alpha * pelmeni)))
 
     return newimg
 
@@ -32,7 +24,7 @@ def embed_wmark_additive(alpha: float, img_orig: Image.Image, watermark: Image.I
 def quantum(channels, delta):
     output = []
     for el in channels:
-        output.append(delta * int((el+0.5) / delta))
+        output.append(delta * int((el + 0.5) / delta))
     return output
 
 
@@ -46,8 +38,8 @@ def generate_dither_vectors(key, delta, size):
         for j in range(size[1]):
             for k in range(3):
                 r = random.random()
-                d0[i][j][k] = int(delta*(r-0.5))
-                d1[i][j][k] = int(d0[i][j][k] - np.sign(d0[i][j][k])*(delta/2))
+                d0[i][j][k] = int(delta * (r - 0.5))
+                d1[i][j][k] = int(d0[i][j][k] - np.sign(d0[i][j][k]) * (delta / 2))
 
     return d0, d1
 
@@ -67,7 +59,7 @@ def embed_wmark_dm_qim(key, delta, img_orig: Image.Image, wmark: Image.Image) ->
     return newimg
 
 
-def extract_wmark_dm_qim(key, delta, cw_img:Image.Image) -> Image.Image:
+def extract_wmark_dm_qim(key, delta, cw_img: Image.Image) -> Image.Image:
     d0, d1 = generate_dither_vectors(key, delta, cw_img.size)
     watermark = Image.new(cw_img.mode, cw_img.size)
 
@@ -86,8 +78,7 @@ def extract_wmark_dm_qim(key, delta, cw_img:Image.Image) -> Image.Image:
 
 
 def embed_wmark_dct(img_orig: Image.Image, watermark: Image.Image) -> Image.Image:
-
-    wm_expanded = expand_img(watermark, img_orig.size)
+    wm_expanded = pave_image(watermark, img_orig.size)
     wm_expanded.save('wm_expanded.bmp')
     newimg = fusion_two_images(img_orig, 0, 0, 1, wm_expanded, 0, 200, 0.2)
     return newimg
@@ -96,13 +87,12 @@ def embed_wmark_dct(img_orig: Image.Image, watermark: Image.Image) -> Image.Imag
 def tsum_dist(tuple_orig, tuple_app):
     res = []
     for i in range(len(tuple_orig)):
-        res.append(tuple_orig[i] + tuple_app[i] / abs(tuple_app[i]-tuple_orig[i])
+        res.append(tuple_orig[i] + tuple_app[i] / abs(tuple_app[i] - tuple_orig[i])
                    if tuple_app[i] != tuple_orig[i] else 1)
     return res
 
 
 def extract_wmark_dct(size, img_wm: Image.Image) -> Image.Image:
-
     wid, hei = img_wm.width, img_wm.height
 
     watmark = Image.new(img_wm.mode, size)
@@ -113,11 +103,11 @@ def extract_wmark_dct(size, img_wm: Image.Image) -> Image.Image:
             x = divmod(i, size[0])[1]
             y = divmod(j, size[1])[1]
 
-            wm_prepared[x][y] = tsum_dist(wm_prepared[x][y], img_wm.getpixel((i,j)))
+            wm_prepared[x][y] = tsum_dist(wm_prepared[x][y], img_wm.getpixel((i, j)))
     for i in range(len(wm_prepared)):
         for j in range(len(wm_prepared[0])):
             wm_prepared[i][j] = tup_mul(wm_prepared[i][j], size[0] / wid * size[1] / hei)
-            watmark.putpixel((i,j), tuple(tint(wm_prepared[i][j])))
+            watmark.putpixel((i, j), tuple(tint(wm_prepared[i][j])))
     return watmark
 
 
@@ -142,78 +132,69 @@ def gen_wm_blind_template(bit_size, mat_size):
     return output
 
 
-def embed_wmark_blind_multi(gain_alpha: float, bit_message:list, key, img_orig: Image.Image) -> Image.Image:
+def embed_wmark_blind_multi(gain_alpha: float, bit_message: list, key, img: Image.Image) -> Image.Image:
     import random
-    wid, hei = img_orig.width, img_orig.height
+    img_new = img.copy()
     random.seed(key)
-    wr = gen_norm_random_mat(img_orig.size)
-    mat_helper = gen_wm_blind_template(len(bit_message), img_orig.size)
-    newimg = img_orig.copy()
-    for i in range(wid):
-        for j in range(hei):
-            wmod = wr[i][j] if bit_message[mat_helper[i][j]] == 1 else 0-wr[i][j]
-            chan1 = img_orig.getpixel((i, j))[0]
-            chan1 += gain_alpha * wmod
-            chan2 = img_orig.getpixel((i, j))[1]
-            chan2 += gain_alpha * wmod
-            chan3 = img_orig.getpixel((i, j))[2]
-            chan3 += gain_alpha * wmod
-            newimg.putpixel((i,j), tuple(tint([chan1, chan2, chan3])))
+    bit_len = len(bit_message)
+    for i in range(img.width):
+        for j in range(img.height):
+            wr_ij = 2 * (random.random() - 0.5)
+            w_mod = wr_ij if bit_message[int(bit_len * random.random())] == 1 else -wr_ij
+            g_times_wm = gain_alpha * w_mod
+            old_pix = img.getpixel((i, j))
+            new_pix = int(old_pix[0] * g_times_wm), int(old_pix[1] * g_times_wm), int(old_pix[2] * g_times_wm)
+            img_new.putpixel((i, j), new_pix)
 
-    return newimg
+    return img_new
 
 
 def p_blinder(p_k, threshold):
-    if p_k > threshold:
-        return 1
-    elif p_k < 0-threshold:
-        return 0
-    else:
-        return -1
+    res = []
+    for elm in p_k:
+        if elm > threshold:
+            res.append(1)
+        elif elm < 0 - threshold:
+            res.append(0)
+        else:
+            res.append(-1)
+    return res
 
 
-def extract_wmark_blind_multi(thrsd, bit_len, key, img_cw: Image.Image):
+def extract_wmark_blind_multi(thrsd, bit_len, key, img: Image.Image):
     import random
-    import numpy as np
-    random.seed(key)
-    wr = gen_norm_random_mat(img_cw.size)
-    mat_helper = gen_wm_blind_template(bit_len, img_cw.size)
 
     b_restored = []
-    for i in range(bit_len):
-        print('extraction of', i+1, ' bit')
+    for b_k in range(bit_len):
+        print('extraction of', b_k + 1, ' bit')
         num_k = 0
-        p_kred, p_kgreen, p_kblue = 0, 0, 0
-        for m in range(img_cw.width):
-            for n in range(img_cw.height):
-                pix = img_cw.getpixel((m, n))
+        p_k_tuple = [0, 0, 0]
+        random.seed(key)
+        for i in range(img.width):
+            for j in range(img.height):
+                wr_ij = 2 * (random.random() - 0.5)
+                mat_h_ij = int(bit_len * random.random())
 
-                if int(mat_helper[m][n]) == i:
-                    w_rk_val = wr[m][n]
+                pix = list(img.getpixel((i, j)))
+                if mat_h_ij == b_k:
+                    w_rk_val = wr_ij
                     num_k += 1
                 else:
                     w_rk_val = .0
-                p_kred += pix[0] * w_rk_val
-                p_kgreen += pix[1] * w_rk_val
-                p_kblue += pix[2] * w_rk_val
 
-        cof = (1/num_k)
-        p_kred *= cof
-        p_kgreen *= cof
-        p_kblue *= cof
-        b_kr, b_kg, b_kb = p_blinder(p_kred, thrsd), p_blinder(p_kgreen, thrsd), p_blinder(p_kblue, thrsd)
-        b_restored.append((b_kr, b_kg, b_kb))
+                p_k_tuple[0] += pix[0] * w_rk_val
+                p_k_tuple[1] += pix[1] * w_rk_val
+                p_k_tuple[2] += pix[2] * w_rk_val
+
+        cof = 1 / num_k
+        p_k_tuple[0] *= cof
+        p_k_tuple[1] *= cof
+        p_k_tuple[2] *= cof
+
+        b_restored.append(p_blinder(p_k_tuple, thrsd))
 
     b_out = []
     for elm in b_restored:
-        flag = False
-        for bit in elm:
-            if bit != -1:
-                flag = True
-                b_out.append(bit)
-                break
-        if not flag:
-            b_out.append(-1)
-
-
+        elm.sort()
+        b_out.append(elm[1])
     return b_out

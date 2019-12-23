@@ -144,13 +144,10 @@ def get_bitmaps(noi_list: list) -> list:
     image: Image.Image
     for image in noi_list:
         bitmap = np.zeros([*image.size])
-        upper, lower = (255, 255, 255), (0, 0, 0)  # get_max_and_min(image)
         for i in range(image.width):
             for j in range(image.height):
                 pixel = image.getpixel((i, j))
-                if tup_total(lower) < tup_total(pixel) < tup_total(upper):
-                    continue
-                bitmap[i][j] = 1
+                bitmap[i][j] = 1 if 0 < tup_total(pixel) < 765 else 0
         result += [bitmap]
     return result
 
@@ -181,8 +178,7 @@ def fusion_impulse_filter(img_list: list) -> Image.Image:
     while len(img_list) > 1:
         num, bm = get_smallest_bitmap(get_bitmaps(img_list))
         print('Impulse fusion: ESTIMATED ', len(img_list))
-        best_sample: Image.Image = img_list.pop(num)
-        best_sample.save('impulse/best_sample-' + str(len(img_list)) + '.bmp')
+        best_sample = img_list.pop(num)
         for image in img_list:
             for i in range(image.width):
                 for j in range(image.height):

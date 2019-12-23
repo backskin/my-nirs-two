@@ -134,17 +134,15 @@ def tint(tuple_one):
 
 
 def tup_mul(tuple_one, mul):
-    res = []
-    for el in tuple_one:
-        res.append(el * mul)
-    return res
+    for i in range(len(tuple_one)):
+        tuple_one[i] *= mul
+    return tuple_one
 
 
 def tup_sum(tuple_one, tuple_two):
-    res = []
-    for el in range(len(tuple_one)):
-        res.append(tuple_one[el] + tuple_two[el])
-    return res
+    for i in range(len(tuple_one)):
+        tuple_one[i] += tuple_two[i]
+    return tuple_one
 
 
 def tup_dif(tuple_one, tuple_two):

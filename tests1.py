@@ -1,20 +1,9 @@
 import PIL.Image as Image
-from watermarks import embed_wmark_blind_multi, extract_wmark_blind_multi
-from additions import enoise_image_mul as noise_equal, enoise_image_mul_rgb as noise_rgb
-from fusions import fusion_stacking
+from watermarks import embed_wm_blind_multi, extract_wmark_blind_multi, embed_wm_dm_qim, extract_wm_dm_qim, qim_extract_result
+from additions import enoise_image_mul as noise_equal
+from fusions import fusion_stacking, fusion_superresolution, scan_superresolution
 import matplotlib.pyplot as plt
 import os
-
-
-def gauss_noisy_shots(name: str, amount: int, std: float, img_orig: Image.Image) -> list:
-
-    shots = []
-    for i in range(amount):
-        noised_shot: Image.Image = noise_equal(std, img_orig)
-        shots.append(noised_shot)
-        noised_shot.save(noise_folder+name+'_noised_num_'+str(i)+'.bmp')
-        print(str(i+1)+' noise is ready')
-    return shots
 
 
 folder = 'examples/'
@@ -28,20 +17,38 @@ if not os.path.exists(noise_folder):
     os.mkdir(noise_folder)
 
 image_name = 'car-old'
-one: Image.Image = Image.open(folder + image_name + '.bmp')
-amount = 50
-std_dev = .5
-noise_list = gauss_noisy_shots(image_name, amount, std_dev, one)
-stack_type = 'median'
-restored_image = fusion_stacking(stack_type, noise_list)
-restored_image.save(out_folder+image_name+'_'+str(amount)+'-pcs_'+stack_type+'-type_restored_from_gauss_noise.bmp')
+original: Image.Image = Image.open(folder + image_name + '.bmp')
+watermark: Image.Image = Image.open(folder + 'wm_inverse.bmp')
+
+secret_key = 'kitty'
+
+images = scan_superresolution(4, original)
+for i in range(len(images)):
+    for j in range(len(images[i])):
+        print((i, j))
+        images[i][j] = embed_wm_dm_qim(secret_key, 8, original, watermark)
+print('fusing_SR...')
+res_img = fusion_superresolution(images)
+print('extracting_wm...')
+wm_extracted = extract_wm_dm_qim(secret_key, 8, res_img)
+plt.imshow(wm_extracted)
+plt.show()
+p = qim_extract_result(wm_extracted, watermark)
+print(p)
+
+# amount = 50
+# std_dev = .5
+# noise_list = gauss_noisy_shots(image_name, amount, std_dev, one)
+# stack_type = 'median'
+# restored_image = fusion_stacking(stack_type, noise_list)
+# restored_image.save(out_folder+image_name+'_'+str(amount)+'-pcs_'+stack_type+'-type_restored_from_gauss_noise.bmp')
 
 # image_name = 'car-jeep'
 # wm_name = 'wm'
 # one: Image.Image = Image.open(folder + image_name + '.bmp')
 # key = 'hello'
 # bit_mes = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0]
-# emb_img = embed_wmark_blind_multi(8, bit_mes, key, one)
+# emb_img = embed_wm_blind_multi(8, bit_mes, key, one)
 # emb_img.save(out_folder+image_name+'_with_blind_multi_wm('+key+').bmp')
 # print('embeded')
 # b_res = extract_wmark_blind_multi(0.2, len(bit_mes), key, emb_img)
@@ -59,12 +66,12 @@ restored_image.save(out_folder+image_name+'_'+str(amount)+'-pcs_'+stack_type+'-t
 # key = 'hello'
 # delta = 16
 # print('embeding...')
-# three = embed_wmark_dct(one, two)
-# # three = embed_wmark_dm_qim(key, delta, one, two)
+# three = embed_wm_dct(one, two)
+# # three = embed_wm_dm_qim(key, delta, one, two)
 # three.save(image_name+'_with_dct_'+wm_name+'.bmp')
 # print('extracting...')
-# extracted = extract_wmark_dct(two.size, three)
-# # extracted = extract_wmark_dm_qim(key, delta, three)
+# extracted = extract_wm_dct(two.size, three)
+# # extracted = extract_wm_dm_qim(key, delta, three)
 # extracted.save(image_name+'dct_wm_extracted.bmp')
 
 
@@ -82,7 +89,7 @@ restored_image.save(out_folder+image_name+'_'+str(amount)+'-pcs_'+stack_type+'-t
 
 # orig = Image.open(image_name + '.bmp')
 #
-# t_frames = scan(8, orig)
+# t_frames = scan_superresolution(8, orig)
 # print('matsynth started')
 # new_image = mat_synth(t_frames)
 # new_image.save(image_name+'_matrix.bmp')

@@ -1,5 +1,13 @@
 import PIL.Image as Image
 import numpy as np
+import matplotlib.pyplot as plt
+
+
+def draw_graph_and_save(graph_name: str, x_vector: list, y_vector: list, x_label: str, y_label: str):
+    plt.plot(x_vector, y_vector)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.savefig(graph_name+'.png')
 
 
 def adjust_channels(coef: float, ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> tuple:
@@ -54,25 +62,18 @@ def get_imp_noise(density: float, orig_img: Image.Image) -> Image.Image:
     return image
 
 
-def get_random_noisy_set(orig_img: Image.Image, amount: int) -> list:
-    import random
-    out = []
-    for k in range(amount):
-        density = 0.01 + random.random() / 4
-        out += [get_imp_noise(density, orig_img)]
-    return out
-
-
-def get_noisy_set(density: float, amount: int, orig_img: Image.Image) -> list:
-    out = []
-    for k in range(amount):
-        out += [get_imp_noise(density, orig_img)]
-    return out
-
-
 def gaussian(x, mu, sig):
     from math import sqrt, pi
     return 1. / (sqrt(2. * pi) * sig) * np.exp(-np.power((x - mu) / sig, 2.) / 2)
+
+
+def gauss_noisy_shots(amount: int, std: float, img_orig: Image.Image) -> list:
+
+    shots = []
+    for i in range(amount):
+        noised_shot: Image.Image = enoise_image_mul(std, img_orig)
+        shots.append(noised_shot)
+    return shots
 
 
 def image_add_aperture(img: Image.Image, m_w, m_h) -> Image.Image:
@@ -86,22 +87,15 @@ def image_add_aperture(img: Image.Image, m_w, m_h) -> Image.Image:
 
 def enoise_image_mul(std: float, img: Image.Image) -> Image.Image:
     new_img = img.copy()
+    import random
+    random.seed()
     for i in range(img.width):
         for j in range(img.height):
-            old_pix = img.getpixel((i, j))
-            new_img.putpixel((i, j), tuple(tint(tup_sum(old_pix, tup_mul(old_pix, np.random.normal(0.0, std))))))
-    return new_img
-
-
-def enoise_image_mul_rgb(std: float, img: Image.Image) -> Image.Image:
-    new_img = img.copy()
-    for i in range(img.width):
-        for j in range(img.height):
-            old_pix = img.getpixel((i, j))
-            noise_pix = []
-            for k in range(len(old_pix)):
-                noise_pix.append(old_pix[k] * np.random.normal(0.0, std))
-            new_img.putpixel((i, j), tuple(tint(tup_sum(old_pix, noise_pix))))
+            pix = list(img.getpixel((i, j)))
+            pix[0] = pix[0] * (1 + np.random.normal(0.0, std))
+            pix[1] = pix[1] * (1 + np.random.normal(0.0, std))
+            pix[2] = pix[2] * (1 + np.random.normal(0.0, std))
+            new_img.putpixel((i, j), tuple(tint(pix)))
     return new_img
 
 
@@ -109,7 +103,7 @@ def pave_image(img: Image.Image, new_size) -> Image.Image:
     newimg = Image.new(img.mode, new_size)
     for i in range(newimg.width):
         for j in range(newimg.height):
-            newimg.putpixel((i, j), img.getpixel((divmod(i, img.width)[1], divmod(j, img.height)[1])))
+            newimg.putpixel((i, j), img.getpixel((i % img.width, j % img.height)))
     return newimg
 
 
@@ -140,9 +134,10 @@ def tup_mul(tuple_one, mul):
 
 
 def tup_sum(tuple_one, tuple_two):
+    res = []
     for i in range(len(tuple_one)):
-        tuple_one[i] += tuple_two[i]
-    return tuple_one
+        res.append(tuple_one[i] + tuple_two[i])
+    return res
 
 
 def tup_dif(tuple_one, tuple_two):

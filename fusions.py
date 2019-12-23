@@ -4,7 +4,7 @@ from additions import empty_rgb_matrix, expand_image, tup_sum, tup_mul, tint, ad
 import numpy as np
 
 
-def fusion_pix_synth(frames: list) -> Image.Image:
+def fusion_superresolution(frames: list) -> Image.Image:
     shot_h = len(frames[0])
     shot_w = len(frames)
     low_width = frames[0][0].width
@@ -29,7 +29,7 @@ def fusion_pix_synth(frames: list) -> Image.Image:
     return out
 
 
-def scan(scale, orig_img: Image.Image) -> list:
+def scan_superresolution(scale, orig_img: Image.Image) -> list:
     import os
     print('size of original image [', orig_img.width, orig_img.height, ']')
     m_w = orig_img.width - scale
@@ -46,8 +46,6 @@ def scan(scale, orig_img: Image.Image) -> list:
         j_frames = []
         for y in range(scale):
             new_img = orig_img.crop((x, y, m_w + x, m_h + y)).resize((new_w, new_h), Image.LINEAR)
-            new_img.resize((orig_img.width, orig_img.height), Image.NONE).save(
-                'results/scan_yAxis' + str(y) + '_xAxis' + str(x) + '.bmp')
             j_frames = j_frames + [new_img]
         frames = frames + [j_frames]
 
@@ -81,8 +79,6 @@ def scan_blurry(scale, orig_img: Image.Image) -> list:
                     tmp_img.putpixel((i, j), tuple(tint(mean)))
 
             j_frames = j_frames + [tmp_img]
-            tmp_img.resize((orig_img.width, orig_img.height), Image.NONE).save(
-                'results/scan_yAxis' + str(y) + '_xAxis' + str(x) + '.bmp')
         frames = frames + [j_frames]
 
     return frames
@@ -143,34 +139,21 @@ def get_bitmaps(noi_list: list) -> list:
     result = []
     image: Image.Image
     for image in noi_list:
-        bitmap = np.zeros([*image.size])
-        for i in range(image.width):
-            for j in range(image.height):
-                pixel = image.getpixel((i, j))
-                bitmap[i][j] = 1 if 0 < tup_total(pixel) < 765 else 0
+        bitmap = [[0 if 0 < tup_total(image.getpixel((i, j))) < 765 else 1
+                   for i in range(image.height)]
+                  for j in range(image.width)]
         result += [bitmap]
     return result
 
 
-def bitmap_sum(bitmap: list):
-    summary = 0
-    string: list
-    for string in bitmap:
-        for elm in string:
-            summary += elm
-    return summary
-
-
 def get_smallest_bitmap(bitmaps: list):
-    sums = []
-    for bm in bitmaps:
-        sums += [bitmap_sum(bm)]
-
     smallest = 0
-    for i in range(len(sums)):
-        if sums[i] < sums[smallest]:
+    sum_val = np.array(bitmaps[smallest]).sum()
+    for i in range(len(bitmaps)):
+        t_val = np.array(bitmaps[i]).sum()
+        if t_val < sum_val:
             smallest = i
-
+            sum_val = t_val
     return smallest, bitmaps[smallest]
 
 
@@ -195,13 +178,16 @@ def fusion_stacking(fusion_type: str, shots: list) -> Image.Image:
         print('STACKING: ERROR. There is no ', fusion_type, ' type')
         return example
     img_new = Image.new(example.mode, example.size)
-
+    print('stacking...')
     if fusion_type == 'mean':
         for i in range(example.width):
             for j in range(example.height):
-                pix = (0, 0, 0)
+                pix = [0, 0, 0]
                 for shot in shots:
-                    pix = tup_sum(pix, shot.getpixel((i, j)))
+                    shot_pix = shot.getpixel((i, j))
+                    pix[0] += shot_pix[0]
+                    pix[1] += shot_pix[1]
+                    pix[2] += shot_pix[2]
                 img_new.putpixel((i, j), tuple(tint(tup_mul(pix, (1 / len(shots))))))
 
     else:

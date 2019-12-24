@@ -110,12 +110,13 @@ def sum_cha_packs(pack_one, pack_two):
 
 def get_image_from_channels(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> Image.Image:
     size = (len(ch1), len(ch1[0]))
-    newimg = Image.new('RGB', size)
+    image_new = Image.new('RGB', size)
+
     for i in range(size[0]):
         for j in range(size[1]):
             pixel = [ch1[i][j], ch2[i][j], ch3[i][j]]
-            newimg.putpixel((i, j), tuple(tint(pixel)))
-    return newimg
+            image_new.putpixel((i, j), tuple(tint(pixel)))
+    return image_new
 
 
 def fusion_two_images(img1: Image.Image, b1: int, c1: int, k1: float,

@@ -2,7 +2,7 @@
 import PIL.Image as Image
 from fusions import fusion_impulse_filter
 from additions import get_imp_noise, draw_graph_and_save
-from watermarks import embed_wm_blind_multi, extract_wmark_blind_multi, blind_extract_result
+from watermarks import embed_wm_blind_multi, extract_wm_blind_multi, blind_extract_result
 import numpy as np
 
 
@@ -18,7 +18,7 @@ def cycle(img_name: str, dens: float, bits_am: int, amount_of_images: int, orig_
     restored_image = fusion_impulse_filter(images)
     restored_image.save('outputs/'+img_name+'_imp_noise_restored('+str(dens)+'dens,'+str(amount_of_images)+'pcs).bmp')
     print('extracting from restored...')
-    ext_message = extract_wmark_blind_multi(.2, len(message), secret_key, restored_image)
+    ext_message = extract_wm_blind_multi(.2, len(message), secret_key, restored_image)
     print('было: ', message)
     print('стало: ', ext_message)
     return dens, blind_extract_result(message, ext_message)

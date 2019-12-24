@@ -9,7 +9,7 @@ def cycle(name: str, dens: float, amount_of_images: int, orig_image: Image.Image
     images = []
     for i in range(amount_of_images):
         next_image = get_imp_noise(dens, orig_image)
-        next_image = embed_wmark_additive(0.09, next_image, wm_image)
+        next_image = embed_wmark_additive(0.2, next_image, wm_image)
         images.append(next_image)
     print('намутили для дэнс = ', dens)
     restored_image = fusion_impulse_filter(images)

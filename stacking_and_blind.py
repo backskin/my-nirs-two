@@ -2,7 +2,7 @@
 import PIL.Image as Image
 from fusions import fusion_stacking
 from additions import draw_graph_and_save, enoise_image_mul
-from watermarks import embed_wm_blind_multi, extract_wmark_blind_multi, blind_extract_result
+from watermarks import embed_wm_blind_multi, extract_wm_blind_multi, blind_extract_result
 import numpy as np
 
 
@@ -20,7 +20,7 @@ def cycle(img_name: str, fus_type: str, dens: float, bits_am: int, amount_of_ima
     restored_image = fusion_stacking(fus_type, images)
     restored_image.save('outputs/'+img_name+'_stack_restored('+str(dens)+'dens,'+fus_type+'_fustype,'+str(amount_of_images)+'pcs).bmp')
     print('extracting from restored...')
-    ext_message = extract_wmark_blind_multi(.2, len(message), secret_key, restored_image)
+    ext_message = extract_wm_blind_multi(.2, len(message), secret_key, restored_image)
     print('было: ', message)
     print('стало: ', ext_message)
     return dens, blind_extract_result(message, ext_message)

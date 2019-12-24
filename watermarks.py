@@ -101,7 +101,7 @@ def qim_extract_result(wm_extracted, wm_orig) -> float:
 def embed_wm_dct(img_orig: Image.Image, watermark: Image.Image) -> Image.Image:
     wm_expanded = pave_image(watermark, img_orig.size)
     wm_expanded.save('wm_expanded.bmp')
-    newimg = fusion_two_images(img_orig, 0, 0, 1, wm_expanded, 0, 50, 0.2)
+    newimg = fusion_two_images(img_orig, 0, 0, 1, wm_expanded, 0, 40, 0.3)
     return newimg
 
 
@@ -185,7 +185,7 @@ def p_blinder(p_k, threshold):
     return res
 
 
-def extract_wmark_blind_multi(thrsd, bit_len, key, img: Image.Image):
+def extract_wm_blind_multi(thrsd, bit_len, key, img: Image.Image):
     import random
 
     b_restored = []

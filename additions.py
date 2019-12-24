@@ -100,11 +100,12 @@ def enoise_image_mul(std: float, img: Image.Image) -> Image.Image:
 
 
 def pave_image(img: Image.Image, new_size) -> Image.Image:
-    newimg = Image.new(img.mode, new_size)
-    for i in range(newimg.width):
-        for j in range(newimg.height):
-            newimg.putpixel((i, j), img.getpixel((i % img.width, j % img.height)))
-    return newimg
+    img_new = Image.new(img.mode, new_size)
+
+    for i in range(img_new.width):
+        for j in range(img_new.height):
+            img_new.putpixel((i, j), img.getpixel((i % img.width, j % img.height)))
+    return img_new
 
 
 def expand_image(img: Image.Image, m_w, m_h) -> Image.Image:

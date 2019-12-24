@@ -27,8 +27,8 @@ results_folder = 'results/'
 
 
 # test one: 10 images and mean
-# images_amount = 10
-# cycle(results_folder+image_name, 'mean', images_amount, watermark, original)
+images_amount = 10
+cycle(results_folder+image_name, 'mean', images_amount, watermark, original)
 
 # test two: 50 images and mean
 images_amount = 50
